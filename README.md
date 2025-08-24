@@ -19,7 +19,8 @@ This project demonstrates how to write and **cross-compile** a simple Linux kern
 - **Cons:** Requires correct cross-toolchain, matching kernel headers.  
 
 ---
+### 🐧 Cross Compilation Overview
 
-![Cross Compilation Flow](./cross_compiling_diagram.svg)
+![Cross Compilation Flow](doc/cross_compiling_diagram.svg)
 
 
