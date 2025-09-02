@@ -25,7 +25,7 @@
  */
 static int __init hello_init(void)
 {
-    printk(KERN_INFO "Hello, world!\n");
+    printk(KERN_INFO "Hello, ARM64 World!\n");
     return 0;  
 }
 
@@ -45,7 +45,7 @@ static int __init hello_init(void)
  
 static void __exit hello_exit(void)
 {
-    printk(KERN_INFO "Goodbye, world!\n");
+    printk(KERN_INFO "Goodbye, ARM64 World!\n");
 }
 
 // Macros to define the module’s init and exit points
