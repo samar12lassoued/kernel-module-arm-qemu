@@ -1,8 +1,8 @@
-KDIR ?= compile_kernel/linux-5.10
+KDIR ?= linux-5.10
 CROSS_COMPILE ?= aarch64-linux-gnu-
 ARCH ?= arm64
 
-obj-m += hello.o
+obj-m += hello_module.o
 
 all:
 	$(MAKE) -C $(KDIR) M=$(PWD) modules

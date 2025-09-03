@@ -21,7 +21,7 @@ This project demonstrates how to write and **cross-compile** a simple Linux kern
 ---
 ### 🐧 Cross Compilation Overview
 
-![Cross Compilation Flow](doc/cross_compiling.svg)
+![Cross Compilation Flow](doc/cross_compiling_steps.svg)
 
 ## 1. Install Required Packages
 ```bash
