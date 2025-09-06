@@ -7,21 +7,22 @@ This project demonstrates how to write and **cross-compile** a simple Linux kern
 ## 🔑 Key Concepts
 
 ### Native Compilation
-- **Definition:** Compiling software **on the same architecture** and system where it will run.  
-- **Example:** Building a kernel module on an x86-64 Ubuntu machine, and also running it there.  
-- **Pros:** Simple, no toolchains needed.  
-- **Cons:** Not possible if your target system is resource-constrained (e.g., embedded boards).  
+- **Definition:** consists of compiling software **on the same architecture** and system where it will run.  
+- **Example:** Compiling a c program  on an x86-64 Ubuntu machine, and also running it there.  
+- **Cons:** Not possible if our target system is resource-constrained (e.g., embedded boards).  
 
 ### Cross Compilation
-- **Definition:** Compiling software on a **different architecture** than the one it will run on, using a **cross-compiler toolchain**.  
-- **Example:** Building a kernel module on an x86-64 host for an **ARM64 target** using `aarch64-linux-gnu-gcc`.  
-- **Pros:** Faster builds, can target small/embedded systems.  
-- **Cons:** Requires correct cross-toolchain, matching kernel headers.  
+- **Definition:** consists of compiling software on a **different architecture** than the one it will run on, using a **cross-compiler toolchain**.  
+- **Example:** Building a kernel module on an x86-64 host for an **ARM64 target** using `gcc-aarch64-linux-gnu`.  
 
+  ***Why we need cross-compilation?***
+
+  We need Cross compilation since we can't compile directly on the target itself due to limited ressources and the compilation process itself needs large ressources.
+  
 ---
 ### 🐧 Cross Compilation Overview
 
-![Cross Compilation Flow](doc/cross_compiling_steps.svg)
+![Cross Compilation Flow](doc/cross_compiling_steps-Page.svg)
 
 ## 1. Install Required Packages
 ```bash
@@ -38,12 +39,12 @@ sudo apt install -y \
     kmod
 ```
 
-## 2. Download and Extract Linux Kernel 5.10
+## 2. Download and Extract Linux Kernel 6.6
 
 ```bash
-wget https://cdn.kernel.org/pub/linux/kernel/v5.x/linux-5.10.tar.xz
-tar xf linux-5.10.tar.xz
-cd linux-5.10
+wget https://cdn.kernel.org/pub/linux/kernel/v6.x/linux-6.6.tar.xz
+tar xf linux-6.6.tar.xz
+cd linux-6.6
 ```
 
 ## 3. Configure and Build Kernel for QEMU (ARM64)
@@ -61,13 +62,10 @@ make defconfig
 
 # Enable necessary options (optional but recommended)
 make menuconfig
-# Navigate to:
-# - Device Drivers -> Character devices -> Serial drivers -> ARM AMBA PL011 serial port support (enable)
-# - General setup -> Initial RAM filesystem and RAM disk support (enable)
-# - Save and exit
 
 # Build the kernel:
-make -j$(nproc) Image dtbs
+make -j$(nproc) Image 
+make -j$(nproc) modules
 ```
 The compiled kernel image will be located at:
 ```bash
@@ -75,7 +73,8 @@ arch/arm64/boot/Image
 ```
 
 
-### 4.Download and Build BusyBox
+### 4. Download and Build BusyBox
+For our embedded environment, we'll build a minimal rootfs using BusyBox, which packages numerous essential Unix utilities into a single compact binary. This approach dramatically simplifies our build by creating a statically linked system, eliminating the need for dynamic linking or shared library dependencies.
 ```bash
 cd ..
 wget https://busybox.net/downloads/busybox-1.36.0.tar.bz2
@@ -115,70 +114,75 @@ sudo mknod rootfs/dev/null c 1 3
 
 
 ### 5. Create init Script
+For the kernel to pass control to the userspace, it attempts to execute an init process as the first process. Therefore we'll create our own shell script to run as the first process. Create rootfs/init script:
 
-Inside rootfs, create a file named init:
 ```bash
 cd rootfs
 cat > init << 'EOF'
 #!/bin/sh
+
+# Mount essential filesystems
 mount -t proc none /proc
 mount -t sysfs none /sys
-echo "Welcome to Minimal BusyBox RootFS"
+mount -t devtmpfs none /dev
+
+# Set up environment
+export PATH=/bin:/sbin:/usr/bin:/usr/sbin
+export SHELL=/bin/sh
+
+echo "Minimal Linux environment ready"
 exec /bin/sh
 EOF
+
+# Setup the script to be executable
 chmod +x init
 cd ..
 ```
 
-### 6. Create Create Initramfs
+### 7. Module Compilation and Integration 
 
-Pack the filesystem into an initramfs:
+Cross-compile the module
 ```bash
+make KDIR=linux-6.6 cross-compile
+```
+***Verify ARM64 module***
+```bash
+file hello_module.ko
+```
+Add to rootfs and rebuild initramfs
+```bash
+cp hello_module.ko rootfs/
 cd rootfs
 find . | cpio -o -H newc | gzip > ../initramfs.cpio.gz
 cd ..
 ```
 Now we have: initramfs.cpio.gz
 
-### 7. Cross-Compile the Module
-# Use the kernel source we built
-```bash
-make KDIR=../linux-5.10 cross-compile
-```
 
-### 8. Test the Module in QEMU
-```bash
-# Copy module to rootfs
-cp hello_module.ko rootfs/
 
-# Recreate initramfs with module
-cd rootfs
-find . | cpio -o -H newc | gzip > ../initramfs.cpio.gz
-cd ..
-```
-
-### 9. Boot QEMU with Kernel and Initramfs
+### 8. Boot QEMU with Kernel and Initramfs
 ```bash
 qemu-system-aarch64 \
     -M virt \
     -cpu cortex-a53 \
     -smp 2 \
     -m 1G \
-    -kernel linux-5.10/arch/arm64/boot/Image \
+    -kernel linux-6.6/arch/arm64/boot/Image \
     -initrd initramfs.cpio.gz \
     -append "console=ttyAMA0 earlycon=pl011,0x9000000 init=/init" \
     -nographic \
     -no-reboot
 ```
 
-### 6.  Inside QEMU: Test the Module
+### 9.  Inside QEMU: Test the Module
 ```bash
-# Once you get the shell prompt in QEMU:
-ls -la /hello_module.ko
-insmod /hello_module.ko
-dmesg | tail -5
+# Once you get the shell prompt in QEMU: Load and test module
+
+insmod hello_module.ko
+dmesg | tail -3
+
 rmmod hello_module
-dmesg | tail -5
+dmesg | tail -3
 ```
 Verify Everything Works :
 You should see:

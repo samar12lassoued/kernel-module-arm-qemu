@@ -1,6 +1,3 @@
-KDIR ?= linux-5.10
-CROSS_COMPILE ?= aarch64-linux-gnu-
-ARCH ?= arm64
 
 obj-m += hello_module.o
 
